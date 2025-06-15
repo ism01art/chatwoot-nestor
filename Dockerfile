@@ -1,12 +1,18 @@
-FROM chatwoot/chatwoot:latest
+FROM ruby:3.2
 
-ENV RAILS_ENV=production
-ENV NODE_ENV=production
+ARG NODE_VERSION=18
 
-# Se você precisar instalar dependências extras, adicione aqui (opcional)
-# RUN apt-get update && apt-get install -y <pacotes>
+RUN apt-get update -qq && apt-get install -y build-essential libpq-dev curl gnupg git libvips
 
-# Copia as variáveis de ambiente se quiser usar localmente (opcional)
-# COPY .env .env
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
+    apt-get install -y nodejs && npm install -g yarn
 
-CMD ["/bin/bash", "-c", "bundle exec rails db:prepare && bundle exec rails s -b 0.0.0.0"]
+WORKDIR /app
+COPY . .
+
+RUN gem install bundler && bundle install
+RUN yarn install --check-files
+RUN yarn build && RAILS_ENV=production bundle exec rake assets:precompile
+
+EXPOSE 3000
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
