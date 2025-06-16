@@ -20,8 +20,8 @@ RUN apt-get update -qq && \
       libpq-dev \
       git \
       ca-certificates \
-      nodejs \
-      npm \
+      curl \
+      python3 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
@@ -62,16 +62,16 @@ RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 # Forçar instalação do Babel e seus presets
 RUN yarn add @babel/core @babel/preset-env --dev
 
-# Atualizar browserslist/caniuse-lite (evita erro durante compilação de assets)
+# Atualizar browserslist/caniuse-lite
 RUN npx browserslist@latest --update-db || true
 
-# Instalar dependências JS com force reinstall
-RUN rm -rf node_modules package-lock.json yarn.lock build dist && \
+# Limpar cache antigo e reinstalar todas as dependências JS
+RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache && \
     yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --check-files --force
 
-# Garantir que @babel/preset-env foi instalado
-RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ Falha crítica: @babel/preset-env não encontrado"; exit 1; fi
+# Verificar se @babel/preset-env foi instalado
+RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO CRÍTICO: @babel/preset-env não instalado"; exit 1; fi
 
 # Copiar código fonte completo
 COPY --chown=rails:rails . ./
@@ -82,7 +82,7 @@ ENV SECRET_KEY_BASE=dummykeyforbuild
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Limpeza pós-build
-RUN rm -rf tmp/* log/* vendor/cache vendor/yarn_cache doc coverage spec test .yardoc \
+RUN rm -rf tmp/* log/* doc coverage spec test .yardoc \
     && find /tmp -type f -name '*.gem' -delete \
     && find vendor/bundle -name "*.c" -delete \
     && find vendor/bundle -name "*.o" -delete
