@@ -20,27 +20,22 @@ RUN apt-get update -qq && \
       ca-certificates \
       nodejs \
       npm \
-      python3 \
-      libssl-dev \
-      zlib1g-dev \
-      libxml2-dev \
-      libxslt1-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p vendor/cache vendor/yarn_cache
+    && rm -rf /var/lib/apt/lists/*
 
-# Criar usuário não-root e garantir que $HOME seja criado
+# Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    install -d -m 0755 -o rails -g rails /home/rails
+    mkdir -p /home/rails && \
+    chown -R rails:rails /home/rails
 
 USER rails
 
-# Garantir que o WORKDIR tenha permissões
-RUN mkdir -p ${APP_HOME} && chown -R rails:rails ${APP_HOME}
+# Garantir $APP_HOME com permissões
+RUN mkdir -p ${APP_HOME}
 
-# Copiar Gemfile e Gemfile.lock primeiro para aproveitar o cache do Docker
+# Copiar Gemfile e Gemfile.lock primeiro
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
 
-# Instalar Bundler na versão compatível com o projeto
+# Instalar Bundler
 ARG BUNDLER_VERSION
 RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
 
@@ -54,7 +49,7 @@ RUN bundle install --jobs $(nproc) --retry 3 --deployment
 # Copiar package.json e yarn.lock antes do código fonte
 COPY --chown=rails:rails package.json yarn.lock ./
 
-# Instalar Yarn via npm e as dependências JS
+# Instalar Yarn globalmente e as dependências JS
 RUN npm install -g yarn && \
     yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
@@ -98,9 +93,13 @@ RUN apt-get update -qq && \
 
 # Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    install -d -m 0755 -o rails -g rails /home/rails
+    mkdir -p /home/rails && \
+    chown -R rails:rails /home/rails
 
 USER rails
+
+# Garantir APP_HOME
+RUN mkdir -p ${APP_HOME}
 
 # Copiar apenas os arquivos essenciais do stage builder
 COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
