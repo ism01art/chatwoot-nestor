@@ -18,12 +18,11 @@ RUN apt-get update -qq && \
       libpq-dev \
       libvips42 \
       git \
-      curl \
       ca-certificates \
       nodejs \
+      npm \
       python3 \
       libssl-dev \
-      libreadline-dev \
       zlib1g-dev \
       libxml2-dev \
       libxslt1-dev \
@@ -53,7 +52,8 @@ RUN bundle install --jobs $(nproc) --retry 3 --deployment
 # Copiar package.json e yarn.lock antes do código fonte
 COPY --chown=rails:rails package.json yarn.lock ./
 
-# Instalar Yarn globalmente e as dependências JS
+# Instalar dependências JS com Yarn (via npm apenas se necessário)
+# Alternativa: usar yarnpkg (apt install yarnpkg) se preferir evitar npm
 RUN npm install -g yarn && \
     yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
@@ -61,7 +61,7 @@ RUN npm install -g yarn && \
 # Copiar todo o código fonte
 COPY --chown=rails:rails . .
 
-# Pré-compilar assets
+# Pré-compilar assets (usando uma variável dummy apenas para build)
 ARG SECRET_KEY_BASE
 ENV SECRET_KEY_BASE=${SECRET_KEY_BASE:-dummykeyforbuild}
 RUN RAILS_ENV=production bundle exec rake assets:precompile
