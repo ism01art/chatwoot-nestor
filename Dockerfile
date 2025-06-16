@@ -26,10 +26,16 @@ RUN apt-get update -qq && \
 
 # Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails || true && \
-    chown -R rails:rails ${APP_HOME}
+    mkdir -p /home/rails && \
+    chown -R rails:rails /home/rails
 
 USER rails
+
+# Garantir PATH para yarn
 ENV PATH="${NPM_CONFIG_PREFIX}/bin:${PATH}"
+
+# Garantir que os diretórios necessários existam e tenham permissões
+RUN mkdir -p ${NPM_CONFIG_PREFIX} ${APP_HOME} ~/.npm
 
 # Copiar Gemfile primeiro
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
