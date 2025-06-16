@@ -25,7 +25,7 @@ RUN apt-get update -qq && \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
-# Adicionar repositório do NodeSource para Node.js 20.x
+# Adicionar repositório NodeSource para Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x  | bash - && \
     apt-get install -y nodejs
 
@@ -59,7 +59,7 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
-# Atualizar browserslist e caniuse-lite (evita erro de versão antiga)
+# Atualizar browserslist/caniuse-lite (evita erro durante compilação de assets)
 RUN npx browserslist@latest --update-db || true
 
 # Instalar dependências JS
