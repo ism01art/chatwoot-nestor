@@ -45,61 +45,19 @@ c=n d=n h=n i=n I=n l=n r=n s=n u=n w=n v=n BRANCH=master SERVICE=web
 # Iterate options in order and nicely split until we see --
 while true; do
     case "$1" in
-        -c|--console)
-            c=y
-            break
-            ;;
-        -d|--debug)
-            d=y
-            shift
-            ;;
-        -h|--help)
-            h=y
-            break
-            ;;
-        -i|--install)
-            i=y
-            BRANCH="master"
-            break
-            ;;
-       -I|--Install)
-            I=y
-            BRANCH="$2"
-            break
-            ;;
-        -l|--logs)
-            l=y
-            SERVICE="$2"
-            break
-            ;;
-        -r|--restart)
-            r=y
-            break
-            ;;
-        -s|--ssl)
-            s=y
-            shift
-            ;;
-        -u|--upgrade)
-            u=y
-            break
-            ;;
-        -w|--webserver)
-            w=y
-            shift
-            ;;
-        -v|--version)
-            v=y
-            shift
-            ;;
-        --)
-            shift
-            break
-            ;;
-        *)
-            echo "Invalid option(s) specified. Use help(-h) to learn more."
-            exit 3
-            ;;
+        -c|--console)   c=y; shift ;;
+        -d|--debug)     d=y; shift ;;
+        -h|--help)      h=y; shift ;;
+        -i|--install)   i=y; BRANCH="master"; shift ;;
+        -I|--Install)   I=y; BRANCH="$2"; shift 2 ;;
+        -l|--logs)      l=y; SERVICE="$2"; shift 2 ;;
+        -r|--restart)   r=y; shift ;;
+        -s|--ssl)       s=y; shift ;;
+        -u|--upgrade)   u=y; shift ;;
+        -w|--webserver) w=y; shift ;;
+        -v|--version)   v=y; shift ;;
+        --)             shift; break ;;
+        *) echo "Invalid option(s) specified. Use help(-h) to learn more."; exit 3 ;;
     esac
 done
 
@@ -128,10 +86,11 @@ trap exit_handler EXIT
 #   None
 ##############################################################################
 function exit_handler() {
-  if [ "$?" -ne 0 ] && [ "$u" == "n" ]; then
-   echo -en "\nSome error has occured. Check '/var/log/chatwoot-setup.log' for details.\n"
-   exit 1
-  fi
+  local code=$?
+if [ "$code" -ne 0 ] && [ "$u" == "n" ]; then
+    echo -en "\nSome error has occured. Check '/var/log/chatwoot-setup.log' for details.\n"
+    exit $code
+fi
 }
 
 ##############################################################################
@@ -229,7 +188,7 @@ function install_webserver() {
 #   None
 ##############################################################################
 function create_cw_user() {
-  if ! id -u "chatwoot"; then
+  if ! id -u "chatwoot" > /dev/null 2>&1; then
     adduser --disabled-password --gecos "" chatwoot
   fi
 }
