@@ -59,6 +59,9 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
+# Atualizar browserslist e caniuse-lite (evita erro de versão antiga)
+RUN npx browserslist@latest --update-db || true
+
 # Instalar dependências JS
 RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
