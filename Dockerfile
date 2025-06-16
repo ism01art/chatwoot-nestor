@@ -7,7 +7,8 @@ ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
-    APP_HOME=/home/rails/app
+    APP_HOME=/home/rails/app \
+    NPM_CONFIG_PREFIX=/home/rails/.npm-global
 
 WORKDIR ${APP_HOME}
 
@@ -20,25 +21,17 @@ RUN apt-get update -qq && \
       ca-certificates \
       nodejs \
       npm \
-      python3 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p ${APP_HOME}
 
-# Criar usuário não-root antes de qualquer operação
-RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p /home/rails/app && \
-    chown -R rails:rails /home/rails
+# Criar usuário não-root
+RUN adduser --disabled-password --gecos '' rails || true && \
+    chown -R rails:rails ${APP_HOME}
 
 USER rails
-ENV HOME=/home/rails
-ENV PATH=/home/rails/.local/bin:${PATH}
+ENV PATH="${NPM_CONFIG_PREFIX}/bin:${PATH}"
 
-# Garantir pastas necessárias
-RUN mkdir -p ~/.npm-global/lib ~/.npm-global/bin
-
-# Configurar NPM para instalar globalmente sem sudo
-ENV NPM_CONFIG_PREFIX='/home/rails/.npm-global'
-
-# Copiar Gemfile e Gemfile.lock primeiro
+# Copiar Gemfile primeiro
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
 
 # Instalar Bundler
@@ -49,25 +42,23 @@ RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
 RUN bundle config set path 'vendor/bundle' && \
     bundle config set without 'development test'
 
-# Instalar as gems
-RUN bundle install --jobs $(nproc) --retry 3 --deployment
+# Instalar gems
+RUN bundle install --jobs $(nproc) --retry 3
 
-# Copiar package.json e yarn.lock
+# Copiar package.json/yarn.lock
 COPY --chown=rails:rails package.json yarn.lock ./
 
-# Instalar yarn localmente (sem uso de root)
-RUN npm install -g yarn --prefix '/home/rails/.npm-global'
+# Instalar Yarn localmente (sem root)
+RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
 # Instalar dependências JS
 RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
 
-# Copiar código fonte
-COPY --chown=rails:rails . ./
+# Copiar código fonte completo
+COPY --chown=rails:rails . .
 
 # Pré-compilar assets
-ARG SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=dummykeyforbuild
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Limpeza pós-build
@@ -100,13 +91,13 @@ RUN apt-get update -qq && \
     && rm -rf /var/lib/apt/lists/*
 
 # Criar usuário não-root
-RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p /home/rails/app && \
-    chown -R rails:rails /home/rails
+RUN adduser --disabled-password --gecos '' rails || true && \
+    mkdir -p ${APP_HOME} && \
+    chown -R rails:rails ${APP_HOME}
 
 USER rails
 
-# Copiar apenas o necessário do stage builder
+# Copiar apenas arquivos essenciais do stage builder
 COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/assets ${APP_HOME}/public/assets
