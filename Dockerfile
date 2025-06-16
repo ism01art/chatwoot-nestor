@@ -1,89 +1,116 @@
-# Etapa 1: Builder com dependências completas
-FROM ruby:3.3-slim AS builder
+# ================================
+# Stage 1: Builder
+# ================================
+FROM ruby:3.3 AS builder
 
-ARG NODE_VERSION=20
+ENV LANG=C.UTF-8 \
+    RAILS_ENV=production \
+    NODE_ENV=production \
+    TZ=UTC \
+    APP_HOME=/home/rails/app
 
-# Definir timezone globalmente
-ENV TZ=UTC
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+WORKDIR ${APP_HOME}
 
-# Variáveis do Rails
-ENV RAILS_ENV=production \
-    RAILS_LOG_TO_STDOUT=true \
-    RAILS_SERVE_STATIC_FILES=true
-
-# Instale dependências essenciais + certificados
+# Dependências de sistema
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       build-essential \
       libpq-dev \
-      libvips42 \
       curl \
       git \
-      python3 \
       gnupg \
-      ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+      libvips42 \
+      ca-certificates \
+      nodejs \
+      python3 \
+      libssl-dev \
+      libreadline-dev \
+      zlib1g-dev \
+      libxml2-dev \
+      libxslt1-dev \
+      && rm -rf /var/lib/apt/lists/*
 
-# Instale Node.js 20.x
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x  | bash - && \
-    apt-get install -y nodejs && \
-    npm install -g yarn && \
-    npm cache clean --force && \
-    rm -rf /tmp/npm*
+# Usuário não-root
+RUN adduser --disabled-password --gecos '' rails && \
+    mkdir -p /home/rails/app && \
+    chown -R rails:rails /home/rails/app
 
-WORKDIR /app
+USER rails
 
-# Copie Gemfile e instale gems
-COPY Gemfile Gemfile.lock ./
-RUN gem install bundler -v "$(grep -A1 'BUNDLED WITH' Gemfile.lock | tail -n1 | tr -d ' \r')" && \
+# Copiar Gemfile, Gemfile.lock, package.json, yarn.lock
+COPY --chown=rails:rails Gemfile Gemfile.lock ./
+COPY --chown=rails:rails package.json yarn.lock ./
+
+# Bundler específico (com fallback para a versão mais comum)
+ARG BUNDLER_VERSION
+RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document && \
     bundle config set path 'vendor/bundle' && \
-    bundle config set deployment true && \
-    bundle config set without 'development test' && \
-    bundle install --retry 3 --jobs $(nproc)
+    bundle config set without 'development test'
 
-# Pacotes JS
-COPY package.json yarn.lock ./
-RUN yarn install --check-files --frozen-lockfile
+# Instalar gems e dependências Ruby
+RUN bundle install --jobs $(nproc)
 
-# Código completo
-COPY . .
+# Instalar dependências JS
+RUN yarn install --frozen-lockfile --check-files
+
+# Copiar código fonte completo
+COPY --chown=rails:rails . .
+
+# Pré-compilar assets (SECRET_KEY_BASE é exigido pelo Rails, dummykey garante o build)
+ARG SECRET_KEY_BASE
+ENV SECRET_KEY_BASE=${SECRET_KEY_BASE:-dummykeyforbuild}
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
-# Limpeza de cache desnecessário
-RUN rm -rf tmp/* log/* vendor/bundle/ruby/3.3.0/cache/*.gem
+# Limpeza pós-build
+RUN rm -rf tmp/* log/* vendor/cache vendor/yarn_cache vendor/assets/bower_components \
+    vendor/bundle/.cache vendor/bundle/rdoc doc coverage spec test .yardoc \
+    && find /tmp -type f -name '*.gem' -delete \
+    && find vendor/bundle -name "*.c" -delete \
+    && find vendor/bundle -name "*.o" -delete
 
-# Etapa Final: Imagem Enxuta
+# ================================
+# Stage 2: Runtime Final
+# ================================
 FROM ruby:3.3-slim
 
-ARG NODE_VERSION=20
-
-# Ajuste de timezone e certificados
-ENV TZ=UTC
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# Configuração do Rails
-ENV RAILS_ENV=production \
+ENV LANG=C.UTF-8 \
+    RAILS_ENV=production \
+    NODE_ENV=production \
+    TZ=UTC \
+    APP_HOME=/home/rails/app \
     RAILS_LOG_TO_STDOUT=true \
     RAILS_SERVE_STATIC_FILES=true
 
-# Dependências mínimas para produção
+WORKDIR ${APP_HOME}
+
+# Dependências mínimas no runtime
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       libpq5 \
       libvips42 \
       ca-certificates \
-      nodejs && \
-    rm -rf /var/lib/apt/lists/*
+      nodejs \
+      && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+RUN adduser --disabled-password --gecos '' rails && \
+    mkdir -p ${APP_HOME} && \
+    chown -R rails:rails ${APP_HOME}
 
-# Copiar apenas artefatos necessários
-COPY --from=builder /usr/local/bin/ruby /usr/local/bin/ruby
-COPY --from=builder /usr/local/bin/gem /usr/local/bin/gem
-COPY --from=builder /usr/local/bin/bundle /usr/local/bin/bundle
-COPY --from=builder /usr/local/lib/ruby /usr/local/lib/ruby
-COPY --from=builder /app /app
+USER rails
+
+# Copiar apenas o necessário do builder (incluindo public/assets se existir)
+COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
+COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
+COPY --chown=rails:rails --from=builder ${APP_HOME}/public/assets ${APP_HOME}/public/assets
+COPY --chown=rails:rails --from=builder ${APP_HOME}/config ${APP_HOME}/config
+COPY --chown=rails:rails --from=builder ${APP_HOME}/bin ${APP_HOME}/bin
+COPY --chown=rails:rails --from=builder ${APP_HOME}/db ${APP_HOME}/db
+COPY --chown=rails:rails --from=builder ${APP_HOME}/lib ${APP_HOME}/lib
+COPY --chown=rails:rails --from=builder ${APP_HOME}/VERSION ${APP_HOME}/VERSION
+
+# Garantir permissão de execução do bin/rails
+RUN chmod +x ${APP_HOME}/bin/rails
 
 EXPOSE 3000
-CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
+
+CMD ["bin/rails", "server", "-b", "0.0.0.0"]
