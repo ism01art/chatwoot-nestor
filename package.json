@@ -104,7 +104,7 @@
   "devDependencies": {
     "@babel/core": "^7.23.2",
     "@babel/eslint-parser": "^7.23.2",
-    "@babel/plugin-proposal-class-properties": "^7.23.2",
+    "@babel/plugin-proposal-class-properties": "^7.23.1",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.22.11",
     "@babel/preset-env": "^7.23.2",
     "@size-limit/file": "^8.2.4",
@@ -157,12 +157,7 @@
     }
   },
   "lint-staged": {
-    "app/**/*.{js,vue}": [
-      "eslint --fix",
-      "git add"
-    ],
-    "*.scss": [
-      "scss-lint"
-    ]
+    "app/**/*.{js,vue}": ["eslint --fix", "git add"],
+    "*.scss": ["scss-lint"]
   }
 }
