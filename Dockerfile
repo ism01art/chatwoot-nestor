@@ -25,7 +25,7 @@ RUN apt-get update -qq && \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
-# Adicionar repositório NodeSource para Node.js 20.x
+# Adicionar repositório do NodeSource para Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x  | bash - && \
     apt-get install -y nodejs
 
@@ -59,15 +59,19 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
+# Forçar instalação do Babel e seus presets
+RUN yarn add @babel/core @babel/preset-env --dev
+
 # Atualizar browserslist/caniuse-lite (evita erro durante compilação de assets)
 RUN npx browserslist@latest --update-db || true
 
-# Instalar dependências JS
-RUN yarn config set cache-folder ./vendor/yarn_cache && \
-    yarn install --frozen-lockfile --check-files
+# Instalar dependências JS com force reinstall
+RUN rm -rf node_modules package-lock.json yarn.lock build dist && \
+    yarn config set cache-folder ./vendor/yarn_cache && \
+    yarn install --check-files --force
 
-# Verificar se @babel/preset-env está instalado
-RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env não encontrado!"; exit 1; fi
+# Garantir que @babel/preset-env foi instalado
+RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ Falha crítica: @babel/preset-env não encontrado"; exit 1; fi
 
 # Copiar código fonte completo
 COPY --chown=rails:rails . ./
