@@ -1,6 +1,7 @@
-source 'https://rubygems.org'
+source 'https://rubygems.org' 
 
-ruby '3.3.3'
+# Aceita qualquer versão Ruby 3.3.x
+ruby '~> 3.3.0'
 
 ##-- base gems for rails --##
 gem 'rack-cors', '2.0.0', require: 'rack/cors'
@@ -41,7 +42,7 @@ gem 'down'
 # authentication type to fetch and send mail over oauth2.0
 gem 'gmail_xoauth'
 # Lock net-smtp to 0.3.4 to avoid issues with gmail_xoauth2
-gem 'net-smtp',  '~> 0.3.4'
+gem 'net-smtp', '~> 0.3.4'
 # Prevent CSV injection
 gem 'csv-safe'
 
@@ -49,7 +50,7 @@ gem 'csv-safe'
 gem 'aws-sdk-s3', require: false
 # original gem isn't maintained actively
 # we wanted updated version of faraday which is a dependency for slack-ruby-client
-gem 'azure-storage-blob', git: 'https://github.com/chatwoot/azure-storage-ruby', branch: 'chatwoot', require: false
+gem 'azure-storage-blob', git: 'https://github.com/chatwoot/azure-storage-ruby',  branch: 'chatwoot', require: false
 gem 'google-cloud-storage', require: false
 gem 'image_processing'
 
@@ -71,7 +72,7 @@ gem 'barnes'
 
 ##--- gems for authentication & authorization ---##
 gem 'devise', '>= 4.9.4'
-gem 'devise-secure_password', git: 'https://github.com/chatwoot/devise-secure_password', branch: 'chatwoot'
+gem 'devise-secure_password', git: 'https://github.com/chatwoot/devise-secure_password',  branch: 'chatwoot'
 gem 'devise_token_auth', '>= 1.2.3'
 # authorization
 gem 'jwt'
@@ -82,7 +83,7 @@ gem 'administrate-field-active_storage', '>= 1.0.3'
 gem 'administrate-field-belongs_to_search', '>= 0.9.0'
 
 ##--- gems for pubsub service ---##
-# https://karolgalanciak.com/blog/2019/11/30/from-activerecord-callbacks-to-publish-slash-subscribe-pattern-and-event-driven-design/
+# https://karolgalanciak.com/blog/2019/11/30/from-activerecord-callbacks-to-publish-slash-subscribe-pattern-and-event-driven-design/ 
 gem 'wisper', '2.0.0'
 
 ##--- gems for channels ---##
@@ -90,7 +91,6 @@ gem 'facebook-messenger'
 gem 'line-bot-api'
 gem 'twilio-ruby', '~> 5.66'
 # twitty will handle subscription of twitter account events
-# gem 'twitty', git: 'https://github.com/chatwoot/twitty'
 gem 'twitty', '~> 0.1.5'
 # facebook client
 gem 'koala'
@@ -139,9 +139,9 @@ gem 'procore-sift'
 # parse email
 gem 'email_reply_trimmer'
 
-# TODO: we might have to fork this gem since 0.3.1 has hard depency on nokogir 1.10.
+# TODO: we might have to fork this gem since 0.3.1 has hard depency on nokogiri 1.10.
 # and this gem hasn't been updated for a while.
-gem 'html2text', git: 'https://github.com/chatwoot/html2text_ruby', branch: 'chatwoot'
+gem 'html2text', git: 'https://github.com/chatwoot/html2text_ruby',  branch: 'chatwoot'
 
 # to calculate working hours
 gem 'working_hours'
@@ -152,13 +152,13 @@ gem 'pg_search'
 # Subscriptions, Billing
 gem 'stripe'
 
-## - helper gems --##
+##-- helper gems --##
 ## to populate db with sample data
 gem 'faker'
 
 gem 'phonelib'
 
-# Include logrange conditionally in intializer using env variable
+# Include logrange conditionally in initializer using env variable
 gem 'lograge', '~> 0.14.0', require: false
 
 # worked with microsoft refresh token
@@ -171,7 +171,7 @@ gem 'omniauth', '>= 2.1.2'
 gem 'omniauth-google-oauth2', '>= 1.1.2'
 gem 'omniauth-rails_csrf_protection', '~> 1.0', '>= 1.0.2'
 
-## Gems for reponse bot
+## Gems for response bot
 # adds cosine similarity to postgres using vector extension
 gem 'neighbor'
 gem 'pgvector'
@@ -182,7 +182,7 @@ gem 'reverse_markdown'
 ##############################################################
 
 group :production do
-  # we dont want request timing out in development while using byebug
+  # Avoid request timeout in production
   gem 'rack-timeout'
 end
 
