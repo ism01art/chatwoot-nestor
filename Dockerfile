@@ -20,14 +20,23 @@ RUN apt-get update -qq && \
       ca-certificates \
       nodejs \
       npm \
+      python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Criar usuário não-root E garantir $HOME
+# Criar usuário não-root antes de qualquer operação
 RUN adduser --disabled-password --gecos '' rails && \
     mkdir -p /home/rails/app && \
     chown -R rails:rails /home/rails
 
 USER rails
+ENV HOME=/home/rails
+ENV PATH=/home/rails/.local/bin:${PATH}
+
+# Garantir pastas necessárias
+RUN mkdir -p ~/.npm-global/lib ~/.npm-global/bin
+
+# Configurar NPM para instalar globalmente sem sudo
+ENV NPM_CONFIG_PREFIX='/home/rails/.npm-global'
 
 # Copiar Gemfile e Gemfile.lock primeiro
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
@@ -38,22 +47,23 @@ RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
 
 # Configurar Bundler
 RUN bundle config set path 'vendor/bundle' && \
-    bundle config set without 'development test' && \
-    bundle config set deployment true
+    bundle config set without 'development test'
 
 # Instalar as gems
-RUN bundle install --jobs $(nproc) --retry 3
+RUN bundle install --jobs $(nproc) --retry 3 --deployment
 
-# Copiar package.json e yarn.lock antes do código fonte
+# Copiar package.json e yarn.lock
 COPY --chown=rails:rails package.json yarn.lock ./
 
-# Instalar Yarn globalmente e as dependências JS
-RUN npm install -g yarn && \
-    yarn config set cache-folder ./vendor/yarn_cache && \
+# Instalar yarn localmente (sem uso de root)
+RUN npm install -g yarn --prefix '/home/rails/.npm-global'
+
+# Instalar dependências JS
+RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
 
-# Copiar todo o código fonte
-COPY --chown=rails:rails . .
+# Copiar código fonte
+COPY --chown=rails:rails . ./
 
 # Pré-compilar assets
 ARG SECRET_KEY_BASE
@@ -96,10 +106,7 @@ RUN adduser --disabled-password --gecos '' rails && \
 
 USER rails
 
-# Garantir WORKDIR
-RUN mkdir -p ${APP_HOME}
-
-# Copiar apenas os arquivos essenciais do stage builder
+# Copiar apenas o necessário do stage builder
 COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/assets ${APP_HOME}/public/assets
