@@ -7,19 +7,18 @@ ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
-    APP_HOME=/home/rails/app
+    APP_HOME=/app
 
 WORKDIR ${APP_HOME}
 
-# Dependências de sistema
+# Instalar dependências de sistema necessárias
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       build-essential \
       libpq-dev \
-      curl \
-      git \
-      gnupg \
       libvips42 \
+      git \
+      curl \
       ca-certificates \
       nodejs \
       python3 \
@@ -28,42 +27,47 @@ RUN apt-get update -qq && \
       zlib1g-dev \
       libxml2-dev \
       libxslt1-dev \
-      && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p vendor/cache vendor/yarn_cache
 
-# Usuário não-root
+# Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p /home/rails/app && \
-    chown -R rails:rails /home/rails/app
+    chown -R rails:rails /app
 
 USER rails
 
-# Copiar Gemfile, Gemfile.lock, package.json, yarn.lock
+# Copiar Gemfile e Gemfile.lock primeiro para aproveitar o cache do Docker
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
-COPY --chown=rails:rails package.json yarn.lock ./
 
-# Bundler específico (com fallback para a versão mais comum)
+# Instalar Bundler na versão compatível com o projeto
 ARG BUNDLER_VERSION
-RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document && \
-    bundle config set path 'vendor/bundle' && \
+RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
+
+# Configurar Bundler
+RUN bundle config set path 'vendor/bundle' && \
     bundle config set without 'development test'
 
-# Instalar gems e dependências Ruby
-RUN bundle install --jobs $(nproc)
+# Instalar as gems
+RUN bundle install --jobs $(nproc) --retry 3 --deployment
 
-# Instalar dependências JS
-RUN yarn install --frozen-lockfile --check-files
+# Copiar package.json e yarn.lock antes do código fonte
+COPY --chown=rails:rails package.json yarn.lock ./
 
-# Copiar código fonte completo
+# Instalar Yarn globalmente e as dependências JS
+RUN npm install -g yarn && \
+    yarn config set cache-folder ./vendor/yarn_cache && \
+    yarn install --frozen-lockfile --check-files
+
+# Copiar todo o código fonte
 COPY --chown=rails:rails . .
 
-# Pré-compilar assets (SECRET_KEY_BASE é exigido pelo Rails, dummykey garante o build)
+# Pré-compilar assets
 ARG SECRET_KEY_BASE
 ENV SECRET_KEY_BASE=${SECRET_KEY_BASE:-dummykeyforbuild}
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Limpeza pós-build
-RUN rm -rf tmp/* log/* vendor/cache vendor/yarn_cache vendor/assets/bower_components \
-    vendor/bundle/.cache vendor/bundle/rdoc doc coverage spec test .yardoc \
+RUN rm -rf tmp/* log/* vendor/cache vendor/yarn_cache doc coverage spec test .yardoc \
     && find /tmp -type f -name '*.gem' -delete \
     && find vendor/bundle -name "*.c" -delete \
     && find vendor/bundle -name "*.o" -delete
@@ -77,7 +81,7 @@ ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
-    APP_HOME=/home/rails/app \
+    APP_HOME=/app \
     RAILS_LOG_TO_STDOUT=true \
     RAILS_SERVE_STATIC_FILES=true
 
@@ -90,15 +94,15 @@ RUN apt-get update -qq && \
       libvips42 \
       ca-certificates \
       nodejs \
-      && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
+# Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p ${APP_HOME} && \
-    chown -R rails:rails ${APP_HOME}
+    chown -R rails:rails /app
 
 USER rails
 
-# Copiar apenas o necessário do builder (incluindo public/assets se existir)
+# Copiar apenas os arquivos essenciais do stage builder
 COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/assets ${APP_HOME}/public/assets
