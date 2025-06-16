@@ -16,7 +16,6 @@ RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       build-essential \
       libpq-dev \
-      libvips42 \
       git \
       ca-certificates \
       nodejs \
@@ -29,11 +28,14 @@ RUN apt-get update -qq && \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p vendor/cache vendor/yarn_cache
 
-# Criar usuário não-root
+# Criar usuário não-root e garantir que $HOME seja criado
 RUN adduser --disabled-password --gecos '' rails && \
-    chown -R rails:rails /app
+    install -d -m 0755 -o rails -g rails /home/rails
 
 USER rails
+
+# Garantir que o WORKDIR tenha permissões
+RUN mkdir -p ${APP_HOME} && chown -R rails:rails ${APP_HOME}
 
 # Copiar Gemfile e Gemfile.lock primeiro para aproveitar o cache do Docker
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
@@ -52,8 +54,7 @@ RUN bundle install --jobs $(nproc) --retry 3 --deployment
 # Copiar package.json e yarn.lock antes do código fonte
 COPY --chown=rails:rails package.json yarn.lock ./
 
-# Instalar dependências JS com Yarn (via npm apenas se necessário)
-# Alternativa: usar yarnpkg (apt install yarnpkg) se preferir evitar npm
+# Instalar Yarn via npm e as dependências JS
 RUN npm install -g yarn && \
     yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
@@ -61,9 +62,9 @@ RUN npm install -g yarn && \
 # Copiar todo o código fonte
 COPY --chown=rails:rails . .
 
-# Pré-compilar assets (usando uma variável dummy apenas para build)
+# Pré-compilar assets
 ARG SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=${SECRET_KEY_BASE:-dummykeyforbuild}
+ENV SECRET_KEY_BASE=dummykeyforbuild
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Limpeza pós-build
@@ -91,14 +92,13 @@ WORKDIR ${APP_HOME}
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       libpq5 \
-      libvips42 \
       ca-certificates \
       nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    chown -R rails:rails /app
+    install -d -m 0755 -o rails -g rails /home/rails
 
 USER rails
 
