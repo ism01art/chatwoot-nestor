@@ -22,6 +22,8 @@ RUN apt-get update -qq && \
       ca-certificates \
       curl \
       python3 \
+      nodejs \
+      npm \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
@@ -59,19 +61,15 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
-# Forçar instalação do Babel e seus presets
-RUN yarn add @babel/core @babel/preset-env --dev
+# Forçar rebuild do cache do Yarn
+RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache
 
-# Atualizar browserslist/caniuse-lite
-RUN npx browserslist@latest --update-db || true
-
-# Limpar cache antigo e reinstalar todas as dependências JS
-RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache && \
-    yarn config set cache-folder ./vendor/yarn_cache && \
+# Instalar dependências JS com force reinstall
+RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --check-files --force
 
 # Verificar se @babel/preset-env foi instalado
-RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO CRÍTICO: @babel/preset-env não instalado"; exit 1; fi
+RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env não encontrado"; exit 1; fi
 
 # Copiar código fonte completo
 COPY --chown=rails:rails . ./
