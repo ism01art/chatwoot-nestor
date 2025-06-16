@@ -25,7 +25,7 @@ RUN apt-get update -qq && \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
-# Adicionar repositório NodeSource para Node.js 20.x
+# Adicionar repositório do NodeSource para Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x  | bash - && \
     apt-get install -y nodejs
 
