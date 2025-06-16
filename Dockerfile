@@ -8,7 +8,8 @@ ENV LANG=C.UTF-8 \
     NODE_ENV=production \
     TZ=UTC \
     APP_HOME=/home/rails/app \
-    NPM_CONFIG_PREFIX=/home/rails/.npm-global
+    NPM_CONFIG_PREFIX=/home/rails/.npm-global \
+    PATH="/home/rails/.npm-global/bin:${PATH}"
 
 WORKDIR ${APP_HOME}
 
@@ -19,22 +20,23 @@ RUN apt-get update -qq && \
       libpq-dev \
       git \
       ca-certificates \
-      nodejs \
-      npm \
+      curl \
+      python3 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p ${APP_HOME}
 
-# Criar usuário não-root
+# Adicionar repositório do NodeSource para Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x  | bash - && \
+    apt-get install -y nodejs
+
+# Criar usuário não-root antes de qualquer operação
 RUN adduser --disabled-password --gecos '' rails || true && \
     mkdir -p /home/rails && \
     chown -R rails:rails /home/rails
 
 USER rails
 
-# Garantir PATH para yarn
-ENV PATH="${NPM_CONFIG_PREFIX}/bin:${PATH}"
-
-# Garantir que os diretórios necessários existam e tenham permissões
+# Garantir diretórios necessários
 RUN mkdir -p ${NPM_CONFIG_PREFIX} ${APP_HOME} ~/.npm
 
 # Copiar Gemfile primeiro
@@ -62,9 +64,11 @@ RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --frozen-lockfile --check-files
 
 # Copiar código fonte completo
-COPY --chown=rails:rails . .
+COPY --chown=rails:rails . ./
 
 # Pré-compilar assets
+ARG SECRET_KEY_BASE
+ENV SECRET_KEY_BASE=dummykeyforbuild
 RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Limpeza pós-build
