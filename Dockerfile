@@ -7,11 +7,11 @@ ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
-    APP_HOME=/app
+    APP_HOME=/home/rails/app
 
 WORKDIR ${APP_HOME}
 
-# Instalar dependências de sistema necessárias
+# Instalar dependências do sistema
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       build-essential \
@@ -22,15 +22,12 @@ RUN apt-get update -qq && \
       npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Criar usuário não-root
+# Criar usuário não-root E garantir $HOME
 RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p /home/rails && \
+    mkdir -p /home/rails/app && \
     chown -R rails:rails /home/rails
 
 USER rails
-
-# Garantir $APP_HOME com permissões
-RUN mkdir -p ${APP_HOME}
 
 # Copiar Gemfile e Gemfile.lock primeiro
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
@@ -41,10 +38,11 @@ RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
 
 # Configurar Bundler
 RUN bundle config set path 'vendor/bundle' && \
-    bundle config set without 'development test'
+    bundle config set without 'development test' && \
+    bundle config set deployment true
 
 # Instalar as gems
-RUN bundle install --jobs $(nproc) --retry 3 --deployment
+RUN bundle install --jobs $(nproc) --retry 3
 
 # Copiar package.json e yarn.lock antes do código fonte
 COPY --chown=rails:rails package.json yarn.lock ./
@@ -77,7 +75,7 @@ ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
-    APP_HOME=/app \
+    APP_HOME=/home/rails/app \
     RAILS_LOG_TO_STDOUT=true \
     RAILS_SERVE_STATIC_FILES=true
 
@@ -93,12 +91,12 @@ RUN apt-get update -qq && \
 
 # Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails && \
-    mkdir -p /home/rails && \
+    mkdir -p /home/rails/app && \
     chown -R rails:rails /home/rails
 
 USER rails
 
-# Garantir APP_HOME
+# Garantir WORKDIR
 RUN mkdir -p ${APP_HOME}
 
 # Copiar apenas os arquivos essenciais do stage builder
