@@ -5,7 +5,7 @@
 # ================================
 # Stage 1: Builder
 # ================================
-FROM ruby:3.3 AS builder
+FROM ruby:3.3.6 AS builder
 
 # Definir variáveis de ambiente
 ENV LANG=C.UTF-8 \
