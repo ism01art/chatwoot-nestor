@@ -1,5 +1,5 @@
 # ================================
-# Dockerfile Otimizado para Chatwoot-nestor
+# Dockerfile Corrigido para Chatwoot-nestor
 # ================================
 
 # ================================
@@ -53,16 +53,30 @@ RUN gem install bundler:2.5.16 --no-document && \
     bundle config set --local without "${BUNDLE_WITHOUT}" && \
     bundle install --jobs ${BUNDLE_JOBS} --retry ${BUNDLE_RETRY}
 
-# Copiar e instalar dependências JavaScript
+# Copiar arquivos de configuração JavaScript primeiro
 COPY --chown=rails:rails package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=false
+COPY --chown=rails:rails babel.config.js ./
+COPY --chown=rails:rails .babelrc* ./
+COPY --chown=rails:rails webpack.config.js ./
+COPY --chown=rails:rails postcss.config.js ./
 
-# Copiar código fonte
+# Instalar TODAS as dependências JavaScript (incluindo dev dependencies)
+RUN yarn install --frozen-lockfile
+
+# Copiar código fonte completo
 COPY --chown=rails:rails . ./
 
-# Pré-compilar assets com SECRET_KEY_BASE temporário
-RUN SECRET_KEY_BASE=precompile_placeholder \
+# Verificar se dependências críticas estão instaladas
+RUN echo "Verificando dependências críticas..." && \
+    ls -la node_modules/@babel/ && \
+    ls -la node_modules/babel-loader/ || echo "babel-loader não encontrado" && \
+    node -e "console.log('Node.js funcionando:', process.version)" && \
+    yarn --version
+
+# Pré-compilar assets com configurações adequadas
+RUN NODE_ENV=production \
     RAILS_ENV=production \
+    SECRET_KEY_BASE=precompile_placeholder \
     bundle exec rake assets:precompile
 
 # Limpeza pós-build
