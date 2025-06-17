@@ -1,19 +1,27 @@
 # ================================
+# Dockerfile Otimizado para Chatwoot-nestor
+# ================================
+
+# ================================
 # Stage 1: Builder
 # ================================
-FROM ruby:3.3 AS builder
+FROM ruby:3.3.6 AS builder
 
+# Definir variáveis de ambiente
 ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
     APP_HOME=/home/rails/app \
-    NPM_CONFIG_PREFIX=/home/rails/.npm-global \
-    PATH="/home/rails/.npm-global/bin:${PATH}"
+    BUNDLE_PATH=/home/rails/bundle \
+    BUNDLE_WITHOUT="development test" \
+    BUNDLE_JOBS=4 \
+    BUNDLE_RETRY=3
 
+# Definir diretório de trabalho
 WORKDIR ${APP_HOME}
 
-# Instalar dependências do sistema
+# Instalar dependências do sistema em uma única camada
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       build-essential \
@@ -22,116 +30,124 @@ RUN apt-get update -qq && \
       ca-certificates \
       curl \
       python3 \
-      nodejs \
-      npm \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p ${APP_HOME}
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g yarn && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
 
-# Adicionar repositório do NodeSource para Node.js 20.x
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x  | bash - && \
-    apt-get install -y nodejs
-
-# Criar usuário não-root antes de qualquer operação
-RUN adduser --disabled-password --gecos '' rails || true && \
-    mkdir -p /home/rails && \
+# Criar usuário não-root
+RUN adduser --disabled-password --gecos '' rails && \
+    mkdir -p /home/rails/app /home/rails/bundle && \
     chown -R rails:rails /home/rails
 
+# Mudar para usuário não-root
 USER rails
 
-# Garantir diretórios necessários
-RUN mkdir -p ${NPM_CONFIG_PREFIX} ${APP_HOME} ~/.npm
-
-# Copiar Gemfile primeiro
+# Copiar e instalar dependências Ruby primeiro (melhor cache)
 COPY --chown=rails:rails Gemfile Gemfile.lock ./
 
-# Instalar Bundler
-ARG BUNDLER_VERSION
-RUN gem install bundler:${BUNDLER_VERSION:-2.5.16} --no-document
+# Instalar Bundler e configurar
+RUN gem install bundler:2.5.16 --no-document && \
+    bundle config set --local path "${BUNDLE_PATH}" && \
+    bundle config set --local without "${BUNDLE_WITHOUT}" && \
+    bundle install --jobs ${BUNDLE_JOBS} --retry ${BUNDLE_RETRY}
 
-# Configurar Bundler
-RUN bundle config set path 'vendor/bundle' && \
-    bundle config set without 'development test'
-
-# Instalar gems
-RUN bundle install --jobs $(nproc) --retry 3
-
-# Copiar package.json/yarn.lock
+# Copiar e instalar dependências JavaScript
 COPY --chown=rails:rails package.json yarn.lock ./
+RUN yarn install --frozen-lockfile --production=false
 
-# Instalar Yarn localmente (sem root)
-RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
-
-# Limpar cache e forçar reinstalação das dependências JS
-RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache
-
-# Forçar instalação do Babel e macros plugin
-RUN yarn add @babel/core @babel/preset-env babel-plugin-macros --dev
-
-# Agora sim, instalar todas as dependências com força total
-RUN yarn config set cache-folder ./vendor/yarn_cache && \
-    yarn install --force
-
-# Verificar se os módulos essenciais estão lá
-RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env ainda não instalado"; exit 1; fi
-RUN if [ ! -d "node_modules/babel-plugin-macros" ]; then echo "❌ ERRO: babel-plugin-macros ainda não instalado"; exit 1; fi
-
-# Copiar código fonte completo
+# Copiar código fonte
 COPY --chown=rails:rails . ./
 
-# Pré-compilar assets
-ARG SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=dummykeyforbuild
-RUN RAILS_ENV=production bundle exec rake assets:precompile
+# Pré-compilar assets com SECRET_KEY_BASE temporário
+RUN SECRET_KEY_BASE=precompile_placeholder \
+    RAILS_ENV=production \
+    bundle exec rake assets:precompile
 
 # Limpeza pós-build
-RUN rm -rf tmp/* log/* doc coverage spec test .yardoc \
-    && find /tmp -type f -name '*.gem' -delete \
-    && find vendor/bundle -name "*.c" -delete \
-    && find vendor/bundle -name "*.o" -delete
+RUN rm -rf tmp/* log/* node_modules/.cache && \
+    yarn cache clean && \
+    find ${BUNDLE_PATH} -name "*.c" -delete && \
+    find ${BUNDLE_PATH} -name "*.o" -delete
 
 # ================================
 # Stage 2: Runtime Final
 # ================================
-FROM ruby:3.3-slim
+FROM ruby:3.3.6-slim
 
+# Definir variáveis de ambiente para runtime
 ENV LANG=C.UTF-8 \
     RAILS_ENV=production \
     NODE_ENV=production \
     TZ=UTC \
     APP_HOME=/home/rails/app \
+    BUNDLE_PATH=/home/rails/bundle \
+    BUNDLE_WITHOUT="development test" \
     RAILS_LOG_TO_STDOUT=true \
     RAILS_SERVE_STATIC_FILES=true
 
+# Definir diretório de trabalho
 WORKDIR ${APP_HOME}
 
-# Dependências mínimas no runtime
+# Instalar apenas dependências de runtime necessárias
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       libpq5 \
       ca-certificates \
-      nodejs \
-    && rm -rf /var/lib/apt/lists/*
+      curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
 
 # Criar usuário não-root
-RUN adduser --disabled-password --gecos '' rails || true && \
-    mkdir -p ${APP_HOME} && \
-    chown -R rails:rails ${APP_HOME}
+RUN adduser --disabled-password --gecos '' rails && \
+    mkdir -p /home/rails/app /home/rails/bundle && \
+    chown -R rails:rails /home/rails
 
+# Mudar para usuário não-root
 USER rails
 
-# Copiar apenas arquivos essenciais do stage builder
-COPY --chown=rails:rails --from=builder ${APP_HOME}/vendor/bundle ${APP_HOME}/vendor/bundle
-COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
+# Instalar bundler no runtime
+RUN gem install bundler:2.5.16 --no-document
+
+# Copiar arquivos essenciais do stage builder
+COPY --chown=rails:rails --from=builder ${BUNDLE_PATH} ${BUNDLE_PATH}
 COPY --chown=rails:rails --from=builder ${APP_HOME}/public/assets ${APP_HOME}/public/assets
-COPY --chown=rails:rails --from=builder ${APP_HOME}/config ${APP_HOME}/config
+COPY --chown=rails:rails --from=builder ${APP_HOME}/public/packs ${APP_HOME}/public/packs
+
+# Copiar código da aplicação
+COPY --chown=rails:rails --from=builder ${APP_HOME}/app ${APP_HOME}/app
 COPY --chown=rails:rails --from=builder ${APP_HOME}/bin ${APP_HOME}/bin
+COPY --chown=rails:rails --from=builder ${APP_HOME}/config ${APP_HOME}/config
 COPY --chown=rails:rails --from=builder ${APP_HOME}/db ${APP_HOME}/db
 COPY --chown=rails:rails --from=builder ${APP_HOME}/lib ${APP_HOME}/lib
-COPY --chown=rails:rails --from=builder ${APP_HOME}/VERSION ${APP_HOME}/VERSION
+COPY --chown=rails:rails --from=builder ${APP_HOME}/Gemfile ${APP_HOME}/Gemfile
+COPY --chown=rails:rails --from=builder ${APP_HOME}/Gemfile.lock ${APP_HOME}/Gemfile.lock
+COPY --chown=rails:rails --from=builder ${APP_HOME}/config.ru ${APP_HOME}/config.ru
+COPY --chown=rails:rails --from=builder ${APP_HOME}/Rakefile ${APP_HOME}/Rakefile
 
-# Garantir permissão de execução do bin/rails
-RUN chmod +x ${APP_HOME}/bin/rails
+# Copiar VERSION se existir
+COPY --chown=rails:rails --from=builder ${APP_HOME}/VERSION ${APP_HOME}/VERSION 2>/dev/null || true
 
+# Configurar bundler no runtime
+RUN bundle config set --local path "${BUNDLE_PATH}" && \
+    bundle config set --local without "${BUNDLE_WITHOUT}"
+
+# Garantir permissões de execução
+RUN chmod +x ${APP_HOME}/bin/rails ${APP_HOME}/bin/rake
+
+# Criar diretórios necessários
+RUN mkdir -p tmp/pids tmp/cache tmp/sockets log
+
+# Healthcheck para verificar se a aplicação está funcionando
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Expor porta
 EXPOSE 3000
 
-CMD ["bin/rails", "server", "-b", "0.0.0.0"]
+# Comando de inicialização
+CMD ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+
