@@ -61,15 +61,18 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
-# Forçar rebuild do cache do Yarn
+# Forçar reinstalação das dependências JS
 RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache
 
-# Instalar dependências JS com force reinstall
+# Instalar dependências JS com force
 RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --check-files --force
 
 # Verificar se @babel/preset-env foi instalado
 RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env não encontrado"; exit 1; fi
+
+# Verificar se babel-plugin-macros foi instalado
+RUN if [ ! -d "node_modules/babel-plugin-macros" ]; then echo "❌ ERRO: babel-plugin-macros não encontrado"; exit 1; fi
 
 # Copiar código fonte completo
 COPY --chown=rails:rails . ./
