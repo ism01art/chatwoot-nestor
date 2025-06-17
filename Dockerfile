@@ -61,18 +61,19 @@ COPY --chown=rails:rails package.json yarn.lock ./
 # Instalar Yarn localmente (sem root)
 RUN npm install -g yarn --prefix "${NPM_CONFIG_PREFIX}"
 
-# Limpar cache antigo de dependências JS
+# Limpar cache e forçar reinstalação das dependências JS
 RUN rm -rf node_modules package-lock.json yarn.lock vendor/cache vendor/yarn_cache
 
-# Forçar reinstalação das dependências JS
+# Forçar instalação do Babel e macros plugin
+RUN yarn add @babel/core @babel/preset-env babel-plugin-macros --dev
+
+# Agora sim, instalar todas as dependências com força total
 RUN yarn config set cache-folder ./vendor/yarn_cache && \
     yarn install --force
 
-# Verificar se @babel/preset-env foi instalado
-RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env não encontrado"; exit 1; fi
-
-# Verificar se babel-plugin-macros foi instalado
-RUN if [ ! -d "node_modules/babel-plugin-macros" ]; then echo "❌ ERRO: babel-plugin-macros não encontrado"; exit 1; fi
+# Verificar se os módulos essenciais estão lá
+RUN if [ ! -d "node_modules/@babel/preset-env" ]; then echo "❌ ERRO: @babel/preset-env ainda não instalado"; exit 1; fi
+RUN if [ ! -d "node_modules/babel-plugin-macros" ]; then echo "❌ ERRO: babel-plugin-macros ainda não instalado"; exit 1; fi
 
 # Copiar código fonte completo
 COPY --chown=rails:rails . ./
@@ -113,8 +114,8 @@ RUN apt-get update -qq && \
 
 # Criar usuário não-root
 RUN adduser --disabled-password --gecos '' rails || true && \
-    mkdir -p /home/rails/app && \
-    chown -R rails:rails /home/rails/app
+    mkdir -p ${APP_HOME} && \
+    chown -R rails:rails ${APP_HOME}
 
 USER rails
 
