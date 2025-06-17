@@ -57,8 +57,8 @@ RUN gem install bundler:2.5.16 --no-document && \
 COPY --chown=rails:rails package.json yarn.lock ./
 COPY --chown=rails:rails babel.config.js ./
 COPY --chown=rails:rails .babelrc* ./
-COPY --chown=rails:rails webpack.config.js ./
-COPY --chown=rails:rails postcss.config.js ./
+COPY --chown=rails:rails config/webpack/webpack.config.js config/webpack/
+COPY --chown=rails:rails config/webpack/postcss.config.js config/webpack/
 
 # Instalar TODAS as dependências JavaScript (incluindo dev dependencies)
 RUN yarn install --frozen-lockfile
@@ -164,4 +164,5 @@ EXPOSE 3000
 
 # Comando de inicialização
 CMD ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+
 
