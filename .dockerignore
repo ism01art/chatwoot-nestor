@@ -1,102 +1,113 @@
-.dockerignore
+# .dockerignore para Chatwoot-nestor
 
-# Ignorar Git
+# Git
 .git
 .gitignore
-.gitmodules
+.gitattributes
 
-# Ambiente e configurações sensíveis
-.env
-.env.*
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Development files
 .env.local
 .env.development
 .env.test
-.bundle
-.babelrc
-.eslintcache
-*.key
-*.pem
 
-# Logs e temporários
-log/
-tmp/
-storage/
-public/system/
-coverage/
-doc/
-.yardoc
-*.log
-*.swp
-*~
-.DS_Store
-*.iml
-.idea/
-.vscode/
-.svn/
-
-# Node.js / Yarn
-node_modules/
-yarn_cache/
-package-lock.json
-npm-debug.log*
-yarn-error.log*
-yarn.lock # opcional, já que queremos enviar ele pro container
-
-# Testes
-spec/
+# Test files
 test/
-__tests__/
-features/
-cypress/
-jest.config.js
-vitest.config.js
-
-# Editor configs antigos
-.tern-project
-.flowconfig
-.jscsrc
-.eslintrc
-.prettierrc
+spec/
+coverage/
 .rspec
-.rubocop.yml
-.editorconfig
+.simplecov
 
-# Versões e histórico
-.pact/
-.version
-CHANGELOG.md
-README.md
-CONTRIBUTING.md
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Configs de IDEs e sistemas
-/.vscode/*
-/.idea/*
-/.replit
-/.ruby-version
-/.rvmrc
-/.nvmrc
-/.npmrc
-
-# Arquivos de sistema
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-desktop.ini
-*.iml
-*.iws
-*.sublime-project
-*.sublime-workspace
-*.mkv
-*.avi
-*.mp4
-*.mov
-*.flac
-*.mp3
 
-# Cache e artefatos
+# Logs
+*.log
+log/
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+node_modules/
+bower_components/
+
+# Optional npm cache directory
+.npm
+
+# Optional yarn cache
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Ruby
+.bundle/
 vendor/cache/
-vendor/bundle/
-vendor/rails/
-vendor/yarn_cache/
-public/packs/
-public/assets/
-storage/
+.byebug_history
+.ruby-version
+.ruby-gemset
+
+# Rails
 tmp/
+storage/
+public/uploads/
+public/system/
+public/assets/
+public/packs/
+public/packs-test/
+
+# Database
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile.dev
+docker-compose.yml
+docker-compose.override.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+*.tmp
+*.temp
+
