@@ -1,66 +1,102 @@
 .dockerignore
 
-# Ambientes, configs e credenciais
-.bundle
+# Ignorar Git
+.git
+.gitignore
+.gitmodules
+
+# Ambiente e configurações sensíveis
 .env
 .env.*
 .env.local
 .env.development
 .env.test
+.bundle
+.babelrc
+.eslintcache
+*.key
+*.pem
 
-# Logs, temporários e cache
+# Logs e temporários
 log/
 tmp/
 storage/
 public/system/
-
-# Node.js / JS
-yarn_cache/
-package-lock.json
-npm-debug.log*
-
-# Arquivos de editor, OS e auxiliares
+coverage/
+doc/
+.yardoc
+*.log
 *.swp
 *~
 .DS_Store
 *.iml
 .idea/
 .vscode/
-*.log
+.svn/
 
-# Testes e análise
+# Node.js / Yarn
+node_modules/
+yarn_cache/
+package-lock.json
+npm-debug.log*
+yarn-error.log*
+yarn.lock # opcional, já que queremos enviar ele pro container
+
+# Testes
 spec/
 test/
+__tests__/
 features/
-coverage/
-rspec_junit_formatter/
-simplecov/
-.profiledata
+cypress/
+jest.config.js
+vitest.config.js
 
-# Bancos de dados locais
-*.sqlite3
+# Editor configs antigos
+.tern-project
+.flowconfig
+.jscsrc
+.eslintrc
+.prettierrc
+.rspec
+.rubocop.yml
+.editorconfig
 
-# CI/CD configs
-.circleci/
-.github/
-.travis.yml
-.gitlab-ci.yml
-
-# Rails e debug
-.byebug_history
-.rails
-.rake_tasks
-.rails_best_practices_todo.yml
-
-# Versionamento extra e contratos
+# Versões e histórico
 .pact/
 .version
+CHANGELOG.md
+README.md
+CONTRIBUTING.md
 
-# Outros
-.git
-.cache
-.coverage.data
-.yardopts
-.rubocop_todo.yml
-.rubocop.yml
-.reek
+# Configs de IDEs e sistemas
+/.vscode/*
+/.idea/*
+/.replit
+/.ruby-version
+/.rvmrc
+/.nvmrc
+/.npmrc
+
+# Arquivos de sistema
+Thumbs.db
+desktop.ini
+*.iml
+*.iws
+*.sublime-project
+*.sublime-workspace
+*.mkv
+*.avi
+*.mp4
+*.mov
+*.flac
+*.mp3
+
+# Cache e artefatos
+vendor/cache/
+vendor/bundle/
+vendor/rails/
+vendor/yarn_cache/
+public/packs/
+public/assets/
+storage/
+tmp/
